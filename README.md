@@ -5,4 +5,3 @@ Project Lead: Ayush Sharma
 Other Participants: Ikeoluwa oladele, karris12
 Project Title: AI Reliability Engineering
 Team Name: N/A
-GitHub ID: https://github.com/AyushManiSharma
