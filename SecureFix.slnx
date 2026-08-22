@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SecureFix.Api/SecureFix.Api.csproj" />
+    <Project Path="src/SecureFix.Core/SecureFix.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SecureFix.Tests/SecureFix.Tests.csproj" />
+  </Folder>
+</Solution>

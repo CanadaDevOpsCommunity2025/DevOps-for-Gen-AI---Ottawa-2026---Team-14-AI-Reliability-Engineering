@@ -1,0 +1,47 @@
+# Build and dependencies
+bin/
+obj/
+*.dll
+*.exe
+.vs/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# NuGet
+*.nupkg
+.nuget/
+
+# Testing
+TestResults/
+*.trx
+
+# Logs
+logs/
+*.log
+
+# Artifacts
+artifacts/
+build-output/
+publish/
+
+# OS
+Thumbs.db
+.DS_Store

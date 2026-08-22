@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  securefix-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5000
+      DATABASE_URL: sqlite:securefix.db
+      DATABASE_PROVIDER: sqlite
+      AI_PROVIDER: mock
+      POLICY_APPROVAL_REQUIRED: "true"
+      POLICY_KILL_SWITCH_ENABLED: "false"
+      LOG_LEVEL: Information
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - securefix-network
+
+networks:
+  securefix-network:
+    driver: bridge
