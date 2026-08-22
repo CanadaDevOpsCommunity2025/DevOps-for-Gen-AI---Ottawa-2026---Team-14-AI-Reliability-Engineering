@@ -30,4 +30,31 @@ Use this exact schema:
     "severity": "None", "Medium Risk", or "High Risk (Clinical/Financial Safety Violation)"
 }
 `.trim();
+
+const payload = {
+    anthropic_version: "bedrock-2023-05-31",
+    max_tokens: 500,
+    temperature: 0.0,
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+  };
+
+  const command = new InvokeModelCommand({
+    modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+    contentType: "application/json",
+    accept: "application/json",
+    body: JSON.stringify(payload),
+  });
+
+  try {
+    const response = await bedrockClient.send(command);
+    return response;
+  } catch (error) {
+    console.error("Error occurred while invoking the model:", error);
+    throw error;
+  }
 }
