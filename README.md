@@ -31,7 +31,7 @@ The client app calls the Lambda API instead of calling Bedrock directly.
 
 ## Current Implementation
 
-The LLM-as-a-Judge component (step 3, deep evaluation) is implemented and working end-to-end against AWS Bedrock.
+Steps 1, 2, and the deep-evaluation half of step 3 are implemented, deployed to AWS, and callable over the internet as a real proxy — not just a local script.
 
 - **[`sreJudge.js`](sreJudge.js)** — `runSonnetJudge(context, modelOutput)` sends a grounding context and a model's completion to **Claude Sonnet 4.6** on Amazon Bedrock, and gets back a structured reliability scorecard:
 
@@ -46,9 +46,17 @@ The LLM-as-a-Judge component (step 3, deep evaluation) is implemented and workin
 
   The judge grades on a 3-point scale — **Passed**, **Warning** (minor unsupported detail), or **Critical Fail** (contradiction, metric flip, or fabricated high-risk claim) — so it can drive an error-budget-style alerting system rather than a simple pass/fail gate.
 
-- **[`demo.js`](demo.js)** — Runs three real Bedrock calls through the judge, covering all three verdict types: a grounded output, a metric flip (e.g. "up 12%" flipped to "down 12%"), and a minor unsupported detail. Useful for demoing the judge live.
+- **[`handler.js`](handler.js)** — The Lambda proxy itself, deployed behind API Gateway (see [`template.yaml`](template.yaml)). For each request it:
+  1. **Request Gate** — runs regex checks for prompt injection phrasing and PII (credit card numbers, SSNs) and blocks the request immediately if flagged, before any Bedrock call.
+  2. **Forward** — sends the prompt (plus grounding context, if supplied) to Claude Sonnet 4.6 on Bedrock and times the call.
+  3. **Response Evaluation** — grades the completion with `runSonnetJudge`.
+  4. **Return** — sends back the completion, latency, request-gate result, and SRE evaluation as one JSON response.
 
-The request-gate (prompt injection / PII regex checks), Lambda/API Gateway wrapper, latency instrumentation, and error-budget dashboard described above are part of the project's roadmap and not yet implemented.
+- **[`demo.js`](demo.js)** — Calls `runSonnetJudge` directly (no network hop) across three cases covering all three verdict types: a grounded output, a metric flip, and a minor unsupported detail. Useful for demoing the judge in isolation.
+
+- **[`demo-api.js`](demo-api.js)** — Calls the **live deployed endpoint** over HTTP across four cases: a grounded question, a prompt-injection attempt, PII in the prompt, and a prompt with no grounding context. Demonstrates the whole proxy pipeline, not just the judge.
+
+Still on the roadmap: the synchronous fast rule-check running alongside the async judge (currently the judge call is synchronous, not offloaded to a background queue), the 1-5 relevance/quality scale (currently 1-3), and the error-budget dashboard/alerting from Goal 2.
 
 ## Getting Started
 
@@ -57,7 +65,7 @@ The request-gate (prompt injection / PII regex checks), Lambda/API Gateway wrapp
 - Node.js
 - An AWS account with:
   - Access to **Claude Sonnet 4.6** enabled in Amazon Bedrock (submit the one-time use-case form in the Bedrock console playground if you haven't already)
-  - An IAM identity with `bedrock:InvokeModel` permission (e.g. the `AmazonBedrockFullAccess` managed policy)
+  - An IAM identity with permissions for Bedrock, Lambda, API Gateway, CloudFormation, and S3 (needed to deploy the stack — see [Deployment](#deployment) below)
   - Credentials configured locally (`aws configure`, or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` environment variables)
 
 ### Install
@@ -66,13 +74,13 @@ The request-gate (prompt injection / PII regex checks), Lambda/API Gateway wrapp
 npm install
 ```
 
-### Run the demo
+### Run the local judge demo
 
 ```bash
 node demo.js
 ```
 
-This sends three test cases to the judge and prints the grounding context, the model output under test, and the judge's verdict for each.
+Sends three test cases straight to `runSonnetJudge` (no deployment needed) and prints the grounding context, the model output under test, and the judge's verdict for each.
 
 ### Use the judge in your own code
 
@@ -87,3 +95,61 @@ const result = await runSonnetJudge(
 console.log(result);
 // { score: 3, status: "🔴 CRITICAL FAIL", severity: "High Risk (...)", hallucinated_facts: "..." }
 ```
+
+## Deployment
+
+The proxy is packaged with [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) ([`template.yaml`](template.yaml)) as a Lambda function behind an API Gateway REST API.
+
+### Prerequisites
+
+- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
+- Docker (used by `sam build --use-container` to build in an environment matching the Lambda runtime — avoids local npm-version build issues)
+
+### Build and deploy
+
+```bash
+sam build --use-container
+sam deploy --stack-name ai-sre-proxy --region us-east-1 --resolve-s3 --capabilities CAPABILITY_IAM
+```
+
+`sam deploy` prints the API's invoke URL when it finishes (`Outputs > ApiUrl`).
+
+### Call the deployed endpoint
+
+```bash
+curl -X POST https://<your-api-id>.execute-api.us-east-1.amazonaws.com/Prod/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What was Q3 revenue, and was it up or down year-over-year?", "groundingContext": "Q3 revenue was $4.2M, up 12% year-over-year."}'
+```
+
+Response:
+
+```json
+{
+  "requestGate": { "blocked": false, "reason": null },
+  "completion": "Q3 revenue was $4.2M, up 12% year-over-year.",
+  "latencyMs": 1922,
+  "sreEvaluation": {
+    "score": 1,
+    "status": "🟢 PASSED",
+    "hallucinated_facts": "None",
+    "severity": "None"
+  }
+}
+```
+
+If `groundingContext` is omitted, the model answers freely and the judge grades the completion against the prompt itself instead.
+
+A prompt containing injection phrasing (e.g. "ignore all previous instructions") or PII (a credit card number, an SSN) gets blocked by the request gate and never reaches Bedrock:
+
+```json
+{ "requestGate": { "blocked": true, "reason": "prompt_injection_detected" }, "completion": null, "sreEvaluation": null }
+```
+
+### Run the live API demo
+
+```bash
+API_URL=https://<your-api-id>.execute-api.us-east-1.amazonaws.com/Prod/evaluate node demo-api.js
+```
+
+(Omit `API_URL` to use the default endpoint baked into the script.) Runs four cases against the deployed proxy: a grounded question, a prompt-injection attempt, PII in the prompt, and a prompt with no grounding context — showing the request gate, the forward-to-Bedrock call with latency, and the judge's verdict for each.

@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AI SRE Proxy - Lambda + API Gateway sitting in front of Amazon Bedrock.
+  Runs a request gate (regex/PII checks), forwards safe prompts to Claude
+  Sonnet 4.6, then grades the completion with an LLM-as-a-judge before
+  returning it to the client.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: nodejs22.x
+
+Resources:
+  SreProxyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handler.lambdaHandler
+      CodeUri: ./
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: '*'
+      Events:
+        Evaluate:
+          Type: Api
+          Properties:
+            Path: /evaluate
+            Method: post
+
+Outputs:
+  ApiUrl:
+    Description: Invoke URL for the /evaluate endpoint
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/evaluate"
