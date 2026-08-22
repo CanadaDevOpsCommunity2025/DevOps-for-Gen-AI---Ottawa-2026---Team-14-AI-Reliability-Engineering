@@ -52,9 +52,22 @@ const payload = {
 
   try {
     const response = await bedrockClient.send(command);
-    return response;
+
+    const decoder = new TextDecoder("utf-8");
+    const responseBody = JSON.parse(decoder.decode(response.body));
+    const rawText = responseBody.content[0].text.trim();
+    
+    // 4. Safely clean any potential markdown formatting
+    const cleanedText = rawText.replace(/^```json/, "").replace(/```$/, "").trim();
+    
+    return JSON.parse(cleanedText);
   } catch (error) {
-    console.error("Error occurred while invoking the model:", error);
-    throw error;
+    console.error("AI SRE Judge failed:", error);
+    return {
+      score: 3,
+      status: "🔴 SRE EVALUATOR ERROR",
+      hallucinated_facts: `The evaluation API call failed: ${error.message}`,
+      severity: "High Risk (Operational Outage)",
+    };
   }
 }
