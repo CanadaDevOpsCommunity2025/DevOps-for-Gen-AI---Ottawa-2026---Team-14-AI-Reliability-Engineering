@@ -48,6 +48,7 @@ try
     builder.Services.AddScoped<IRiskScoringEngine, RiskScoringEngine>();
     builder.Services.AddScoped<IAlertIngestionService, AlertIngestionService>();
     builder.Services.AddScoped<IApprovalService, ApprovalService>();
+    builder.Services.AddScoped<IRemediationRecommendationService, RemediationRecommendationService>();
 
     // Register AI provider factory and provider
     builder.Services.AddScoped<IAIRecommendationProviderFactory, AIRecommendationProviderFactory>();
