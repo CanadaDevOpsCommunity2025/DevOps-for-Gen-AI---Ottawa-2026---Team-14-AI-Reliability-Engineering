@@ -1,6 +1,7 @@
 namespace SecureFix.Api.Controllers;
 
 using FluentValidation;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SecureFix.Core.Models;
 using SecureFix.Core.Services;
@@ -38,6 +39,7 @@ public class AlertsController : ControllerBase
     /// <response code="400">Invalid alert request (validation failed).</response>
     /// <response code="409">Duplicate alert (already processed).</response>
     /// <response code="500">Server error during ingestion.</response>
+    [Authorize(Roles = "Developer,SecurityReviewer,Admin")]
     [HttpPost]
     [ProducesResponseType(typeof(AlertIngestionResponse), StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -71,17 +73,12 @@ public class AlertsController : ControllerBase
 
         try
         {
-            // Check for duplicate
-            var isDuplicate = await _ingestionService.IsDuplicateAsync(request.ExternalAlertId!);
-            if (isDuplicate)
-            {
-                var existingResponse = await _ingestionService.IngestAlertAsync(request, cancellationToken);
-                _logger.LogInformation("Duplicate alert detected. Returning existing assessment.");
-                return Conflict(existingResponse);
-            }
-
-            // Ingest alert
             var response = await _ingestionService.IngestAlertAsync(request, cancellationToken);
+            if (!response.IsAccepted)
+            {
+                _logger.LogInformation("Duplicate alert detected. Returning original workflow.");
+                return Conflict(response);
+            }
 
             return Accepted($"/api/v1/workflows/{response.WorkflowId}", response);
         }
@@ -106,6 +103,7 @@ public class AlertsController : ControllerBase
     /// </summary>
     /// <param name="externalAlertId">External alert ID to check.</param>
     /// <returns>True if alert has been ingested, false otherwise.</returns>
+    [Authorize(Roles = "Developer,SecurityReviewer,Admin")]
     [HttpHead("{externalAlertId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

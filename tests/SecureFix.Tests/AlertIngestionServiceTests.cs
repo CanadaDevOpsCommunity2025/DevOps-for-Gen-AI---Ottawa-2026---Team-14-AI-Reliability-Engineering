@@ -163,9 +163,8 @@ public class AlertIngestionServiceTests : IAsyncLifetime
         Assert.False(secondResponse.IsAccepted);
         Assert.NotNull(secondResponse.Message);
         Assert.Contains("already ingested", secondResponse.Message.ToLower());
-        Assert.NotEqual(firstResponse.WorkflowId, secondResponse.WorkflowId);
-        // Correlation IDs should differ (new request has new correlation)
-        Assert.NotEqual(firstResponse.CorrelationId, secondResponse.CorrelationId);
+        Assert.Equal(firstResponse.WorkflowId, secondResponse.WorkflowId);
+        Assert.Equal(firstResponse.CorrelationId, secondResponse.CorrelationId);
     }
 
     [Fact]

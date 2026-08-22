@@ -15,6 +15,13 @@ public class ApprovalRequestDto
     public string Reviewer { get; set; } = null!;
 
     /// <summary>
+    /// Role of the reviewer submitting the decision.
+    /// Only SecurityReviewer and Admin are allowed to approve or reject workflow actions.
+    /// </summary>
+    [StringLength(100)]
+    public string? ReviewerRole { get; set; }
+
+    /// <summary>
     /// Approval decision: "approved" or "rejected".
     /// </summary>
     [Required]

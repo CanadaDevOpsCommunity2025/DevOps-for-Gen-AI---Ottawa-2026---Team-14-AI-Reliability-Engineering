@@ -19,12 +19,12 @@ public interface IApprovalService
     /// <summary>
     /// Approve an alert for remediation.
     /// </summary>
-    Task<WorkflowStatusResponse> ApproveAlertAsync(string workflowId, string reviewer, string? reason = null);
+    Task<WorkflowStatusResponse> ApproveAlertAsync(string workflowId, string reviewer, string? reason = null, string? reviewerRole = null);
 
     /// <summary>
     /// Reject an alert, blocking further remediation.
     /// </summary>
-    Task<WorkflowStatusResponse> RejectAlertAsync(string workflowId, string reviewer, string? reason = null);
+    Task<WorkflowStatusResponse> RejectAlertAsync(string workflowId, string reviewer, string? reason = null, string? reviewerRole = null);
 
     /// <summary>
     /// Check if alert is approved (required before remediation).
@@ -98,12 +98,15 @@ public class ApprovalService : IApprovalService
         };
     }
 
-    public async Task<WorkflowStatusResponse> ApproveAlertAsync(string workflowId, string reviewer, string? reason = null)
+    public async Task<WorkflowStatusResponse> ApproveAlertAsync(string workflowId, string reviewer, string? reason = null, string? reviewerRole = null)
     {
         ArgumentNullException.ThrowIfNull(workflowId);
         ArgumentNullException.ThrowIfNull(reviewer);
 
-        _logger.LogInformation("Approving workflow {WorkflowId} by {Reviewer}", workflowId, reviewer);
+        var effectiveRole = NormalizeReviewerRole(reviewerRole);
+        await EnsureAuthorizedForWorkflow(workflowId, effectiveRole, "approve");
+
+        _logger.LogInformation("Approving workflow {WorkflowId} by {Reviewer} ({Role})", workflowId, reviewer, effectiveRole);
 
         // Fetch alert to verify it exists
         var alert = await _unitOfWork.VulnerabilityAlerts.GetByIdAsync(workflowId);
@@ -128,8 +131,8 @@ public class ApprovalService : IApprovalService
             CorrelationId = alert.CorrelationId,
             Status = ApprovalStatus.Approved,
             ReviewerIdentity = reviewer,
-            ReviewerRole = "SecurityReviewer",
-            Reason = reason ?? "Approved by SecurityReviewer",
+            ReviewerRole = effectiveRole,
+            Reason = reason ?? $"Approved by {effectiveRole}",
             DecisionTime = DateTimeOffset.UtcNow
         };
 
@@ -140,7 +143,7 @@ public class ApprovalService : IApprovalService
             CorrelationId = alert.CorrelationId,
             EventType = "AlertApproved",
             Summary = "Alert approved for remediation",
-            Details = $"Approved by {reviewer}. Reason: {reason ?? "N/A"}",
+            Details = $"Approved by {reviewer} ({effectiveRole}). Reason: {reason ?? "N/A"}",
             IsSecurityRelevant = true,
             Timestamp = DateTimeOffset.UtcNow,
             Actor = reviewer,
@@ -159,12 +162,15 @@ public class ApprovalService : IApprovalService
         return status ?? throw new InvalidOperationException("Failed to retrieve workflow after approval");
     }
 
-    public async Task<WorkflowStatusResponse> RejectAlertAsync(string workflowId, string reviewer, string? reason = null)
+    public async Task<WorkflowStatusResponse> RejectAlertAsync(string workflowId, string reviewer, string? reason = null, string? reviewerRole = null)
     {
         ArgumentNullException.ThrowIfNull(workflowId);
         ArgumentNullException.ThrowIfNull(reviewer);
 
-        _logger.LogInformation("Rejecting workflow {WorkflowId} by {Reviewer}", workflowId, reviewer);
+        var effectiveRole = NormalizeReviewerRole(reviewerRole);
+        await EnsureAuthorizedForWorkflow(workflowId, effectiveRole, "reject");
+
+        _logger.LogInformation("Rejecting workflow {WorkflowId} by {Reviewer} ({Role})", workflowId, reviewer, effectiveRole);
 
         // Fetch alert to verify it exists
         var alert = await _unitOfWork.VulnerabilityAlerts.GetByIdAsync(workflowId);
@@ -189,8 +195,8 @@ public class ApprovalService : IApprovalService
             CorrelationId = alert.CorrelationId,
             Status = ApprovalStatus.Rejected,
             ReviewerIdentity = reviewer,
-            ReviewerRole = "SecurityReviewer",
-            Reason = reason ?? "Rejected by SecurityReviewer",
+            ReviewerRole = effectiveRole,
+            Reason = reason ?? $"Rejected by {effectiveRole}",
             DecisionTime = DateTimeOffset.UtcNow
         };
 
@@ -201,7 +207,7 @@ public class ApprovalService : IApprovalService
             CorrelationId = alert.CorrelationId,
             EventType = "AlertRejected",
             Summary = "Alert rejected - remediation blocked",
-            Details = $"Rejected by {reviewer}. Reason: {reason ?? "N/A"}",
+            Details = $"Rejected by {reviewer} ({effectiveRole}). Reason: {reason ?? "N/A"}",
             IsSecurityRelevant = true,
             Timestamp = DateTimeOffset.UtcNow,
             Actor = reviewer,
@@ -224,6 +230,33 @@ public class ApprovalService : IApprovalService
     {
         var approval = await _unitOfWork.ApprovalDecisions.GetByAlertIdAsync(workflowId);
         return approval != null && (ApprovalStatus)approval.Status == ApprovalStatus.Approved;
+    }
+
+    private static string NormalizeReviewerRole(string? reviewerRole)
+    {
+        var normalized = string.IsNullOrWhiteSpace(reviewerRole) ? "Admin" : reviewerRole.Trim();
+        return normalized switch
+        {
+            "SecurityReviewer" => "SecurityReviewer",
+            "Admin" => "Admin",
+            _ => throw new UnauthorizedAccessException($"Reviewer role '{normalized}' is not authorized for workflow approvals.")
+        };
+    }
+
+    private async Task EnsureAuthorizedForWorkflow(string workflowId, string reviewerRole, string action)
+    {
+        var assessment = await _unitOfWork.RiskAssessments.GetByAlertIdAsync(workflowId);
+        var requiredApprovalLevel = assessment?.RequiredApprovalLevel ?? "SecurityReviewer";
+
+        if (requiredApprovalLevel == "Admin" && reviewerRole != "Admin")
+        {
+            throw new UnauthorizedAccessException($"Workflow {workflowId} requires Admin approval before a {action} can be recorded.");
+        }
+
+        if (reviewerRole is not ("SecurityReviewer" or "Admin"))
+        {
+            throw new UnauthorizedAccessException($"Reviewer role '{reviewerRole}' is not authorized to {action} workflows.");
+        }
     }
 
     private static AlertSummary MapAlertToSummary(Entities.VulnerabilityAlertEntity alert)

@@ -61,33 +61,21 @@ public class AlertIngestionService : IAlertIngestionService
         ArgumentNullException.ThrowIfNull(request.InstalledVersion);
         ArgumentNullException.ThrowIfNull(request.ProviderSeverity);
 
-        var workflowId = Guid.NewGuid().ToString();
-        var correlationId = Guid.NewGuid().ToString();
-
-        _logger.LogInformation(
-            "Ingesting alert {WorkflowId}: {Package}@{Version} (external ID: {ExternalId})",
-            workflowId,
-            request.PackageName,
-            request.InstalledVersion,
-            request.ExternalAlertId);
-
-        // Step 1: Check for duplicate
-        var isDuplicate = await IsDuplicateAsync(request.ExternalAlertId);
-        if (isDuplicate)
+        // Step 1: Check for duplicate before creating any new workflow or correlation IDs.
+        var existingAlert = await _unitOfWork.VulnerabilityAlerts.GetByExternalIdAsync(request.ExternalAlertId);
+        if (existingAlert != null)
         {
             _logger.LogWarning(
-                "Duplicate alert detected: {ExternalId}. Correlation ID: {CorrelationId}",
+                "Duplicate alert detected: {ExternalId}. Reusing original workflow {WorkflowId} and correlation {CorrelationId}",
                 request.ExternalAlertId,
-                correlationId);
+                existingAlert.Id,
+                existingAlert.CorrelationId);
 
-            // Return response indicating duplicate
-            var existingAlert = await _unitOfWork.VulnerabilityAlerts.GetByExternalIdAsync(request.ExternalAlertId);
-            var existingAssessment = await _unitOfWork.RiskAssessments.GetByAlertIdAsync(existingAlert!.Id);
-
+            var existingAssessment = await _unitOfWork.RiskAssessments.GetByAlertIdAsync(existingAlert.Id);
             return new AlertIngestionResponse
             {
-                WorkflowId = workflowId,
-                CorrelationId = correlationId,
+                WorkflowId = existingAlert.Id,
+                CorrelationId = existingAlert.CorrelationId,
                 IsAccepted = false,
                 Assessment = existingAssessment != null
                     ? MapEntityToModel(existingAssessment)
@@ -100,12 +88,23 @@ public class AlertIngestionService : IAlertIngestionService
                         RiskFactors = ["duplicate-detected"]
                     },
                 NextStep = "Skipped (duplicate)",
-                Message = $"This alert was already ingested. Original correlation ID: {existingAlert.CorrelationId}"
+                Message = $"This alert was already ingested. Original workflow ID: {existingAlert.Id}. Original correlation ID: {existingAlert.CorrelationId}",
+                ReceivedAt = existingAlert.ReceivedAt
             };
         }
 
-        // Step 2: Create VulnerabilityAlert domain model
         var alertId = Guid.NewGuid().ToString();
+        var workflowId = alertId;
+        var correlationId = Guid.NewGuid().ToString();
+
+        _logger.LogInformation(
+            "Ingesting alert {WorkflowId}: {Package}@{Version} (external ID: {ExternalId})",
+            workflowId,
+            request.PackageName,
+            request.InstalledVersion,
+            request.ExternalAlertId);
+
+        // Step 2: Create VulnerabilityAlert domain model
         var alert = new VulnerabilityAlert
         {
             Id = alertId,

@@ -1,5 +1,7 @@
 namespace SecureFix.Api.Controllers;
 
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SecureFix.Core.Models;
 using SecureFix.Core.Services;
@@ -32,6 +34,7 @@ public class WorkflowsController : ControllerBase
     /// <response code="200">Workflow found and returned.</response>
     /// <response code="404">Workflow not found.</response>
     /// <response code="500">Server error during lookup.</response>
+    [Authorize(Roles = "Developer,SecurityReviewer,Admin")]
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(WorkflowStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -92,6 +95,7 @@ public class WorkflowsController : ControllerBase
     /// <response code="403">Unauthorized (caller is not SecurityReviewer).</response>
     /// <response code="409">Workflow already has an approval decision.</response>
     /// <response code="500">Server error during approval.</response>
+    [Authorize(Roles = "SecurityReviewer,Admin")]
     [HttpPost("{id}/approve")]
     [ProducesResponseType(typeof(WorkflowStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -122,8 +126,7 @@ public class WorkflowsController : ControllerBase
             });
         }
 
-        // TODO: Implement role-based authorization check
-        // For MVP, all POST operations are allowed; in production, enforce SecurityReviewer role
+        var reviewerRole = User.FindFirstValue(ClaimTypes.Role) ?? request.ReviewerRole ?? "SecurityReviewer";
         if (string.IsNullOrWhiteSpace(request.Reviewer))
         {
             return BadRequest(new ProblemDetails
@@ -136,11 +139,16 @@ public class WorkflowsController : ControllerBase
 
         try
         {
-            _logger.LogInformation("Approving workflow {WorkflowId} by {Reviewer}", id, request.Reviewer);
+            _logger.LogInformation("Approving workflow {WorkflowId} by {Reviewer} as {Role}", id, request.Reviewer, reviewerRole);
 
-            var updatedStatus = await _approvalService.ApproveAlertAsync(id, request.Reviewer, request.Reason);
+            var updatedStatus = await _approvalService.ApproveAlertAsync(id, request.Reviewer, request.Reason, reviewerRole);
 
             return Ok(updatedStatus);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized approval attempt for workflow {WorkflowId}: {Message}", id, ex.Message);
+            return Forbid();
         }
         catch (InvalidOperationException ex)
         {
@@ -202,6 +210,7 @@ public class WorkflowsController : ControllerBase
     /// <response code="403">Unauthorized (caller is not SecurityReviewer).</response>
     /// <response code="409">Workflow already has an approval decision.</response>
     /// <response code="500">Server error during rejection.</response>
+    [Authorize(Roles = "SecurityReviewer,Admin")]
     [HttpPost("{id}/reject")]
     [ProducesResponseType(typeof(WorkflowStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -232,8 +241,7 @@ public class WorkflowsController : ControllerBase
             });
         }
 
-        // TODO: Implement role-based authorization check
-        // For MVP, all POST operations are allowed; in production, enforce SecurityReviewer role
+        var reviewerRole = User.FindFirstValue(ClaimTypes.Role) ?? request.ReviewerRole ?? "SecurityReviewer";
         if (string.IsNullOrWhiteSpace(request.Reviewer))
         {
             return BadRequest(new ProblemDetails
@@ -246,11 +254,16 @@ public class WorkflowsController : ControllerBase
 
         try
         {
-            _logger.LogInformation("Rejecting workflow {WorkflowId} by {Reviewer}", id, request.Reviewer);
+            _logger.LogInformation("Rejecting workflow {WorkflowId} by {Reviewer} as {Role}", id, request.Reviewer, reviewerRole);
 
-            var updatedStatus = await _approvalService.RejectAlertAsync(id, request.Reviewer, request.Reason);
+            var updatedStatus = await _approvalService.RejectAlertAsync(id, request.Reviewer, request.Reason, reviewerRole);
 
             return Ok(updatedStatus);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized rejection attempt for workflow {WorkflowId}: {Message}", id, ex.Message);
+            return Forbid();
         }
         catch (InvalidOperationException ex)
         {

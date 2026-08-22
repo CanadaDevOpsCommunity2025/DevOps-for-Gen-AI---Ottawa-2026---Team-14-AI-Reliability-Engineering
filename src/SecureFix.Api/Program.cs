@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using FluentValidation;
 using Serilog;
+using SecureFix.Api;
 using SecureFix.Core.Data;
 using SecureFix.Core.Models;
 using SecureFix.Core.Repositories;
@@ -18,6 +20,10 @@ try
 
     // Add Serilog
     builder.Host.UseSerilog();
+
+    builder.Services.AddAuthentication(DemoAuthenticationHandler.DefaultScheme)
+        .AddScheme<AuthenticationSchemeOptions, DemoAuthenticationHandler>(DemoAuthenticationHandler.DefaultScheme, _ => { });
+    builder.Services.AddAuthorization();
 
     // Add services to the container
     builder.Services.AddOpenApi();
@@ -62,12 +68,15 @@ try
     // Register validators
     builder.Services.AddScoped<IValidator<AlertIngestionRequest>, AlertIngestionRequestValidator>();
 
-    // Add CORS (for demo purposes)
+    // Add CORS with a restricted allow-list for the demo environment.
     builder.Services.AddCors(options =>
     {
-        options.AddPolicy("AllowAll", policy =>
+        var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "http://localhost:3000,https://localhost:3000,http://localhost:5173,https://localhost:5173")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        options.AddPolicy("SecureFixDemo", policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins(allowedOrigins)
                 .AllowAnyMethod()
                 .AllowAnyHeader();
         });
@@ -82,7 +91,9 @@ try
     }
 
     app.UseHttpsRedirection();
-    app.UseCors("AllowAll");
+    app.UseCors("SecureFixDemo");
+    app.UseAuthentication();
+    app.UseAuthorization();
     app.MapControllers();
 
     // Health check endpoint
