@@ -2,6 +2,6 @@
 Team 14
 Project Name - N/A
 Project Lead: Ayush Sharma
-Other Participants: Ikeoluwa oladele, karris12
+Other Participants: Ikeoluwa Oladele, Roland Agodzo
 Project Title: AI Reliability Engineering
-Team Name: N/A
+Team Name: EarlyBird
