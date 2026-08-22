@@ -47,6 +47,7 @@ try
     // Register business services
     builder.Services.AddScoped<IRiskScoringEngine, RiskScoringEngine>();
     builder.Services.AddScoped<IAlertIngestionService, AlertIngestionService>();
+    builder.Services.AddScoped<IApprovalService, ApprovalService>();
 
     // Register AI provider factory and provider
     builder.Services.AddScoped<IAIRecommendationProviderFactory, AIRecommendationProviderFactory>();

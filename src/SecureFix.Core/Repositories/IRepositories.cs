@@ -50,6 +50,7 @@ public interface IRemediationRecommendationRepository : IRepository<RemediationR
 public interface IApprovalDecisionRepository : IRepository<ApprovalDecisionEntity>
 {
     Task<ApprovalDecisionEntity?> GetByWorkflowIdAsync(string workflowId);
+    Task<ApprovalDecisionEntity?> GetByAlertIdAsync(string alertId);
     Task<IEnumerable<ApprovalDecisionEntity>> GetByReviewerAsync(string reviewerIdentity);
     Task<IEnumerable<ApprovalDecisionEntity>> GetByStatusAsync(int status);
 }

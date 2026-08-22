@@ -101,6 +101,14 @@ public class ApprovalDecisionRepository : BaseRepository<ApprovalDecisionEntity>
             .FirstOrDefaultAsync();
     }
 
+    public async Task<ApprovalDecisionEntity?> GetByAlertIdAsync(string alertId)
+    {
+        return await _dbSet
+            .Where(a => a.AlertId == alertId)
+            .OrderByDescending(a => a.DecisionTime)
+            .FirstOrDefaultAsync();
+    }
+
     public async Task<IEnumerable<ApprovalDecisionEntity>> GetByReviewerAsync(string reviewerIdentity)
     {
         return await _dbSet
