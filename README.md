@@ -18,6 +18,9 @@
 
 **Objective:** By sitting in front of the model, the proxy acts as an active guardrail and compliance gate. It checks prompts for injections and completions for PII leaks before they can reach the user, enforcing continuous compliance.
 
+<img width="911" height="343" alt="image" src="https://github.com/user-attachments/assets/067183a0-53c2-47fd-b673-6347e5adc3d9" />
+
+
 ## How It Works
 
 The client app calls the Lambda API instead of calling Bedrock directly.
