@@ -3,12 +3,12 @@ import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedroc
 const bedrockClient = new BedrockRuntimeClient({ region: "us-east-1" });
 
 /**
- * Sends model outputs and grounding context to Claude 3 Haiku for SRE Evaluation.
+ * Sends model outputs and grounding context to Claude Sonnet 4.6 for SRE Evaluation.
  * @param {string} context - The original source material (truth).
  * @param {string} modelOutput - The AI completion to grade.
  * @returns {Promise<object>} The structured SRE scorecard.
  */
-export async function runHaikuJudge(context, modelOutput) {
+export async function runSonnetJudge(context, modelOutput) {
   const prompt = `
 You are an expert AI Site Reliability Engineer (AI SRE) Quality Judge.
 Your task is to compare the Model Output against the provided Grounding Context to detect hallucinations, metric flips, or fabrications.
@@ -44,7 +44,7 @@ const payload = {
   };
 
   const command = new InvokeModelCommand({
-    modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+    modelId: "us.anthropic.claude-sonnet-4-6",
     contentType: "application/json",
     accept: "application/json",
     body: JSON.stringify(payload),
