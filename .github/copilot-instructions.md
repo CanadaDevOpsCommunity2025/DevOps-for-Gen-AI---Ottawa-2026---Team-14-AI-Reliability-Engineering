@@ -5,7 +5,7 @@
 
 ## Project Purpose
 
-Build an AI Security Release Engineer that detects software vulnerabilities, analyzes risk, recommends fixes, creates remediation pull requests, and enforces security, governance, observability, and human approval controls.
+Build an AI Security Release Engineer that detects software vulnerabilities, analyzes risk, recommends fixes, proposes draft pull requests, and enforces security, governance, observability, and human approval controls.
 
 The project must demonstrate a credible production path and answer:
 
@@ -29,7 +29,7 @@ When a vulnerability alert is received:
 2. Normalize the vulnerability data.
 3. Assess severity and impact.
 4. Generate a remediation recommendation.
-5. Generate a pull request proposal.
+5. Generate a draft pull request proposal.
 6. Run validation checks.
 7. Produce a governance report.
 8. Require human approval.

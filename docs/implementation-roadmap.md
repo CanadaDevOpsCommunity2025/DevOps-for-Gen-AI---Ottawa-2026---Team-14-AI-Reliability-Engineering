@@ -4,7 +4,7 @@
 
 **Repository:** [devops-for-gen-ai---ottawa-2026---team-X-ai-reliability-engineering](https://github.com/wesmacdonald/devops-for-gen-ai---ottawa-2026---team-X-ai-reliability-engineering/)  
 **Primary theme:** Autonomous DevOps  
-**Project:** SecureFix AI, an AI-assisted vulnerability resolution and approval platform  
+**Project:** SecureFix AI, an AI-assisted vulnerability release workflow  
 **Delivery constraint:** A working, reproducible project that can be completed and demonstrated in one hackathon day
 
 ---
@@ -103,7 +103,7 @@ Dependabot-Compatible Event or Sample JSON
        Reject             Approve
           |                 |
           v                 v
-       Audit Log      Draft PR or Simulated Action
+       Audit Log      Draft PR proposal or human-reviewed merge path
                    |
                    v
         Metrics, Traces, and Reports
