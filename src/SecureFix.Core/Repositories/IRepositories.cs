@@ -67,6 +67,16 @@ public interface IAuditEventRepository : IRepository<AuditEventEntity>
 }
 
 /// <summary>
+/// Repository for PullRequestProposal persistence.
+/// </summary>
+public interface IPullRequestProposalRepository : IRepository<PullRequestProposalEntity>
+{
+    Task<PullRequestProposalEntity?> GetByRecommendationIdAsync(string recommendationId);
+    Task<IEnumerable<PullRequestProposalEntity>> GetByAlertIdAsync(string alertId);
+    Task<IEnumerable<PullRequestProposalEntity>> GetByCorrelationIdAsync(string correlationId);
+}
+
+/// <summary>
 /// Unit of Work pattern for coordinating multiple repositories.
 /// </summary>
 public interface IUnitOfWork : IDisposable
@@ -76,6 +86,7 @@ public interface IUnitOfWork : IDisposable
     IRemediationRecommendationRepository RemediationRecommendations { get; }
     IApprovalDecisionRepository ApprovalDecisions { get; }
     IAuditEventRepository AuditEvents { get; }
+    IPullRequestProposalRepository PullRequestProposals { get; }
     
     Task<int> SaveChangesAsync();
 }

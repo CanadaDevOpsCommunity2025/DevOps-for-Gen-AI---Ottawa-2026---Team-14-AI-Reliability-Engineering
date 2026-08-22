@@ -14,6 +14,7 @@ public class UnitOfWork : IUnitOfWork
     private IRemediationRecommendationRepository? _remediationRecommendations;
     private IApprovalDecisionRepository? _approvalDecisions;
     private IAuditEventRepository? _auditEvents;
+    private IPullRequestProposalRepository? _pullRequestProposals;
 
     public UnitOfWork(SecureFixDbContext context)
     {
@@ -34,6 +35,9 @@ public class UnitOfWork : IUnitOfWork
 
     public IAuditEventRepository AuditEvents =>
         _auditEvents ??= new AuditEventRepository(_context);
+
+    public IPullRequestProposalRepository PullRequestProposals =>
+        _pullRequestProposals ??= new PullRequestProposalRepository(_context);
 
     public async Task<int> SaveChangesAsync()
     {

@@ -165,3 +165,35 @@ public class AuditEventRepository : BaseRepository<AuditEventEntity>, IAuditEven
             .ToListAsync();
     }
 }
+
+/// <summary>
+/// Repository implementation for PullRequestProposal entities.
+/// </summary>
+public class PullRequestProposalRepository : BaseRepository<PullRequestProposalEntity>, IPullRequestProposalRepository
+{
+    public PullRequestProposalRepository(SecureFixDbContext context) : base(context) { }
+
+    public async Task<PullRequestProposalEntity?> GetByRecommendationIdAsync(string recommendationId)
+    {
+        return await _dbSet
+            .Where(p => p.RecommendationId == recommendationId)
+            .OrderByDescending(p => p.GeneratedAt)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<IEnumerable<PullRequestProposalEntity>> GetByAlertIdAsync(string alertId)
+    {
+        return await _dbSet
+            .Where(p => p.AlertId == alertId)
+            .OrderByDescending(p => p.GeneratedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<PullRequestProposalEntity>> GetByCorrelationIdAsync(string correlationId)
+    {
+        return await _dbSet
+            .Where(p => p.CorrelationId == correlationId)
+            .OrderByDescending(p => p.GeneratedAt)
+            .ToListAsync();
+    }
+}

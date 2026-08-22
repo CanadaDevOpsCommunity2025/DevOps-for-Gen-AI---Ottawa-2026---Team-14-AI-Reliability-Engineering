@@ -20,6 +20,7 @@ public class SecureFixDbContext : DbContext
     public DbSet<RemediationRecommendationEntity> RemediationRecommendations { get; set; } = null!;
     public DbSet<ApprovalDecisionEntity> ApprovalDecisions { get; set; } = null!;
     public DbSet<AuditEventEntity> AuditEvents { get; set; } = null!;
+    public DbSet<PullRequestProposalEntity> PullRequestProposals { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -148,6 +149,31 @@ public class SecureFixDbContext : DbContext
             entity.HasIndex(e => e.EventType);
             // Index for security events
             entity.HasIndex(e => e.IsSecurityRelevant);
+        });
+
+        // PullRequestProposal configuration
+        modelBuilder.Entity<PullRequestProposalEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(500);
+            entity.Property(e => e.RecommendationId).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.AlertId).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.CorrelationId).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.ProposedTitle).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.ProposedDescription).HasMaxLength(10000).IsRequired();
+            entity.Property(e => e.FilesForReviewJson).HasColumnType("TEXT");
+            entity.Property(e => e.DependencyChangesJson).HasColumnType("TEXT");
+            entity.Property(e => e.ValidationCommandsJson).HasColumnType("TEXT");
+            entity.Property(e => e.RollbackGuidance).HasMaxLength(1000);
+            entity.Property(e => e.KnownLimitations).HasMaxLength(1000);
+            entity.Property(e => e.ResourceLinksJson).HasColumnType("TEXT");
+            entity.Property(e => e.EstimatedEffort).HasMaxLength(50);
+            entity.Property(e => e.RawProposalJson).HasColumnType("TEXT");
+
+            // Indexes for queries
+            entity.HasIndex(e => e.RecommendationId);
+            entity.HasIndex(e => e.AlertId);
+            entity.HasIndex(e => e.CorrelationId);
         });
     }
 }

@@ -49,6 +49,7 @@ try
     builder.Services.AddScoped<IAlertIngestionService, AlertIngestionService>();
     builder.Services.AddScoped<IApprovalService, ApprovalService>();
     builder.Services.AddScoped<IRemediationRecommendationService, RemediationRecommendationService>();
+    builder.Services.AddScoped<IPullRequestProposalService, PullRequestProposalService>();
 
     // Register AI provider factory and provider
     builder.Services.AddScoped<IAIRecommendationProviderFactory, AIRecommendationProviderFactory>();
